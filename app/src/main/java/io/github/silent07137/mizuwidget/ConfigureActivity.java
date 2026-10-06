@@ -54,15 +54,14 @@ public final class ConfigureActivity extends Activity {
             retainedDraft = state.getString("draft");
         }
         LinearLayout page = Ui.page(this);
-        Ui.heading(this, page, "MIZU / 图片组件", widgetId == AppWidgetManager.INVALID_APPWIDGET_ID ? "给桌面一点喜欢。" : "调整你的桌面风景。",
-            "每个组件单独保存。棋盘格代表透明区域。");
+        Ui.heading(this, page, "", widgetId == AppWidgetManager.INVALID_APPWIDGET_ID ? "添加组件" : "组件设置", "");
         preview = Ui.preview(this, page, 220);
         Ui.gap(this, page, 12);
-        status = Ui.text(this, "选择一张图片开始", 13, Ui.MUTED);
+        status = Ui.text(this, "未选择图片", 13, Ui.MUTED);
         status.setAccessibilityLiveRegion(android.view.View.ACCESSIBILITY_LIVE_REGION_POLITE);
         page.addView(status);
         Ui.gap(this, page, 12);
-        Button choose = Ui.button(this, "选择 / 更换图片", false);
+        Button choose = Ui.button(this, "选择图片", false);
         choose.setOnClickListener(v -> chooseImage());
         page.addView(choose);
         Ui.gap(this, page, 20);
@@ -78,7 +77,7 @@ public final class ConfigureActivity extends Activity {
             refreshPreview();
         });
         Ui.gap(this, card, 14);
-        slider(card, "图片不透明度", 100, Math.round(config.opacity * 100), "%", value -> {
+        slider(card, "不透明度", 100, Math.round(config.opacity * 100), "%", value -> {
             config = copy(config.uri, config.scale, config.radiusDp, value / 100f, config.background, config.click, config.gif);
             refreshPreview();
         });
@@ -91,19 +90,17 @@ public final class ConfigureActivity extends Activity {
             refreshPreview();
         });
         Ui.gap(this, card, 14);
-        label(card, "轻点组件");
-        spinner(card, new String[]{"打开设置", "查看图片", "不执行操作"}, config.click.ordinal(), index ->
+        label(card, "点击操作");
+        spinner(card, new String[]{"打开设置", "查看图片", "无"}, config.click.ordinal(), index ->
             config = copy(config.uri, config.scale, config.radiusDp, config.opacity, config.background, WidgetConfig.Click.values()[index], config.gif));
         Ui.gap(this, page, 22);
-        save = Ui.button(this, widgetId == AppWidgetManager.INVALID_APPWIDGET_ID ? "添加到桌面" : "保存组件", true);
+        save = Ui.button(this, widgetId == AppWidgetManager.INVALID_APPWIDGET_ID ? "添加到桌面" : "保存", true);
         save.setOnClickListener(v -> saveWidget());
         page.addView(save);
         Ui.gap(this, page, 12);
         Button cancel = Ui.button(this, "取消", false);
         cancel.setOnClickListener(v -> { if (!busy) finish(); });
         page.addView(cancel);
-        Ui.gap(this, page, 12);
-        page.addView(Ui.text(this, "图片由系统文件选择器授权读取。初版 GIF 显示静态预览，不在后台播放。", 12, Ui.MUTED));
         refreshPreview();
     }
     private WidgetConfig copy(String uri, WidgetConfig.Scale scale, float radius, float opacity, int bg, WidgetConfig.Click click, boolean gif) {
@@ -176,8 +173,8 @@ public final class ConfigureActivity extends Activity {
         generation++;
         ready = false;
         save.setEnabled(false);
-        if (config.uri.isEmpty()) { preview.setImageResource(R.drawable.ic_mizu); status.setText("选择一张图片开始"); return; }
-        status.setText("正在生成预览…");
+        if (config.uri.isEmpty()) { preview.setImageResource(R.drawable.ic_mizu); status.setText("未选择图片"); return; }
+        status.setText("生成预览…");
         handler.postDelayed(previewWork, 100);
     }
     private final Runnable previewWork = () -> {
@@ -199,7 +196,7 @@ public final class ConfigureActivity extends Activity {
                 shown = result;
                 ready = result != null;
                 save.setEnabled(ready && !busy);
-                status.setText(message != null ? message : snapshot.gif ? "GIF · 初版显示静态预览" : "预览已就绪 · 实际尺寸随桌面组件调整");
+                status.setText(message != null ? message : snapshot.gif ? "GIF 静态预览" : "预览");
             });
         });
     };
@@ -250,7 +247,7 @@ public final class ConfigureActivity extends Activity {
         try {
             boolean requested = manager.requestPinAppWidget(WidgetEngine.provider(this), extras, pending);
             if (!requested) { store.removeDraft(token); retainedDraft = null; error("桌面未接受添加请求，请使用桌面的小组件入口"); }
-            else status.setText("请在桌面的提示中确认添加；返回这里可继续调整。");
+            else status.setText("请确认添加到桌面");
         } catch (IllegalArgumentException | IllegalStateException | SecurityException e) {
             store.removeDraft(token); retainedDraft = null; error("暂时无法添加，请使用桌面的小组件入口");
         } finally { busy = false; save.setEnabled(ready); }

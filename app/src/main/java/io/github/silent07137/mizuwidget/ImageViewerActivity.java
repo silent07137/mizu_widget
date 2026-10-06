@@ -17,7 +17,7 @@ public final class ImageViewerActivity extends Activity {
         WidgetConfig config = new ConfigStore(this).get(id);
         if (config == null || !WidgetEngine.owns(this, id)) { finish(); return; }
         LinearLayout page = Ui.page(this);
-        Ui.heading(this, page, "MIZU / 图片", "停留一会儿。", config.gif ? "GIF 静态预览" : "完整图片预览");
+        Ui.heading(this, page, "", "图片预览", config.gif ? "GIF 静态预览" : "");
         ImageView image = Ui.preview(this, page, 420);
         Button close = Ui.button(this, "返回", false);
         Ui.gap(this, page, 20);

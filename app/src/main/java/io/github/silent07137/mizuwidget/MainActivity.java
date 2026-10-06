@@ -14,41 +14,29 @@ public final class MainActivity extends Activity {
         super.onResume();
         new ConfigStore(this).pruneDrafts();
         LinearLayout page = Ui.page(this);
-        Ui.heading(this, page, "MIZU / 小小的桌面风景", "把喜欢，留在桌面。", "一张照片，一点心情。\n为你的桌面留一处安静的角落。");
-        LinearLayout hero = Ui.card(this, page);
-        android.widget.ImageView icon = new android.widget.ImageView(this);
-        icon.setImageResource(R.drawable.ic_mizu);
-        icon.setContentDescription("Mizu 水滴");
-        hero.addView(icon, new LinearLayout.LayoutParams(-1, Ui.dp(this, 100)));
-        Ui.gap(this, hero, 16);
-        hero.addView(Ui.text(this, "你的图片，只留在本机", 19, Ui.INK));
-        Ui.gap(this, hero, 8);
-        hero.addView(Ui.text(this, "透明 PNG · 自由缩放 · 独立设置\n无需账号，没有广告。GIF 在初版显示静态预览。", 14, Ui.MUTED));
-        Ui.gap(this, page, 22);
-        Button add = Ui.button(this, "＋  添加图片组件", true);
+        Ui.heading(this, page, "", "Mizu Widget", "");
+        Button add = Ui.button(this, "＋  添加组件", true);
         add.setOnClickListener(v -> startActivity(new Intent(this, ConfigureActivity.class).setAction(ConfigureActivity.ACTION_CREATE)));
         page.addView(add);
         Ui.gap(this, page, 26);
         int[] ids = AppWidgetManager.getInstance(this).getAppWidgetIds(WidgetEngine.provider(this));
-        page.addView(Ui.text(this, "桌面上的组件  ·  " + ids.length, 18, Ui.INK));
+        page.addView(Ui.text(this, "我的组件  ·  " + ids.length, 18, Ui.INK));
         Ui.gap(this, page, 14);
         if (ids.length == 0) {
             LinearLayout empty = Ui.card(this, page);
-            empty.addView(Ui.text(this, "还没有桌面组件", 16, Ui.INK));
-            Ui.gap(this, empty, 6);
-            empty.addView(Ui.text(this, "点上方按钮开始，或长按桌面 → 小组件 → Mizu Widget。", 14, Ui.MUTED));
+            empty.addView(Ui.text(this, "暂无组件", 16, Ui.INK));
         } else {
             ConfigStore store = new ConfigStore(this);
             for (int id : ids) {
                 WidgetConfig config = store.get(id);
                 LinearLayout card = Ui.card(this, page);
-                card.addView(Ui.text(this, "图片组件 #" + id, 18, Ui.INK));
+                card.addView(Ui.text(this, "组件 #" + id, 18, Ui.INK));
                 Ui.gap(this, card, 5);
-                card.addView(Ui.text(this, config == null ? "等待选择图片" :
+                card.addView(Ui.text(this, config == null ? "未设置图片" :
                     scaleLabel(config.scale) + " · 圆角 " + Math.round(config.radiusDp) + " dp · " +
                     Math.round(config.opacity * 100) + "% 不透明度" + (config.gif ? " · GIF 静态预览" : ""), 13, Ui.MUTED));
                 Ui.gap(this, card, 12);
-                Button edit = Ui.button(this, "调整这张图片", false);
+                Button edit = Ui.button(this, "编辑", false);
                 edit.setOnClickListener(v -> startActivity(new Intent(this, ConfigureActivity.class)
                     .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)));
                 card.addView(edit);
@@ -56,14 +44,14 @@ public final class MainActivity extends Activity {
             }
         }
         Ui.gap(this, page, 22);
-        Button refresh = Ui.button(this, "刷新桌面组件", false);
+        Button refresh = Ui.button(this, "刷新组件", false);
         refresh.setOnClickListener(v -> {
             WidgetEngine.IO.execute(() -> { for (int id : ids) WidgetEngine.update(getApplicationContext(), id); });
             android.widget.Toast.makeText(this, "正在刷新", android.widget.Toast.LENGTH_SHORT).show();
         });
         page.addView(refresh);
         Ui.gap(this, page, 12);
-        Button about = Ui.button(this, "关于 Mizu Widget", false);
+        Button about = Ui.button(this, "关于", false);
         about.setOnClickListener(v -> startActivity(new Intent(this, AboutActivity.class)));
         page.addView(about);
     }

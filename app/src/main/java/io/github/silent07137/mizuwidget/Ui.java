@@ -63,15 +63,19 @@ final class Ui {
         parent.addView(gap, new LinearLayout.LayoutParams(1, dp(a, size)));
     }
     static void heading(Activity a, LinearLayout parent, String eyebrow, String title, String subtitle) {
-        TextView small = text(a, eyebrow, 12, TEAL);
-        small.setLetterSpacing(.12f);
-        parent.addView(small);
-        gap(a, parent, 10);
-        TextView heading = text(a, title, 30, INK);
+        if (!eyebrow.isEmpty()) {
+            TextView small = text(a, eyebrow, 12, TEAL);
+            small.setLetterSpacing(.12f);
+            parent.addView(small);
+            gap(a, parent, 10);
+        }
+        TextView heading = text(a, title, 26, INK);
         heading.setTypeface(null, android.graphics.Typeface.BOLD);
         parent.addView(heading);
-        gap(a, parent, 8);
-        parent.addView(text(a, subtitle, 14, MUTED));
+        if (!subtitle.isEmpty()) {
+            gap(a, parent, 8);
+            parent.addView(text(a, subtitle, 14, MUTED));
+        }
         gap(a, parent, 24);
     }
     static GradientDrawable background(Activity a, int color, int radius) {
