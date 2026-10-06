@@ -1,39 +1,56 @@
 # Mizu Widget
 
-把喜欢的图片，留在 Android 桌面。
+轻量 Android 图片桌面组件。选择图片，调整显示效果，再添加到桌面。
 
-离线优先、没有账号和广告的轻量图片小组件。最低支持 Android 9，初版版本为 **0.1.0**。
+**Android 9+ · 离线运行 · 无广告 · GPL-2.0-only**
 
-## 初版功能
+## 项目进度
 
-- JPG / JPEG、PNG（含透明通道）、WebP 静态图片。
-- GIF **静态预览**；此版本没有后台动图播放。
-- 多个桌面组件分别保存图片与设置。
-- 完整显示、居中裁剪、拉伸铺满。
-- 0–64 dp 圆角、0–100% 图片不透明度。
-- 透明、白色、深色、浅水绿背景。
-- 点击打开设置、查看图片或不执行操作。
-- 支持桌面调整尺寸、应用内重新编辑和刷新。
-- 系统文件选择器授权；删除组件时清理配置、缓存和不再引用的 URI 授权。
-- 应用内关于、完整 GPLv2、源码和第三方许可说明。
+**0.1.0 初版已完成开发和测试，尚未发布正式安装包。** 源码目前位于 [开发分支](https://github.com/silent07137/mizu_widget/tree/codex/mizu-initial-development)，正在通过 [PR #1](https://github.com/silent07137/mizu_widget/pull/1) 合入主分支。
+
+测试构建可从 [已通过的 GitHub Actions 运行](https://github.com/silent07137/mizu_widget/actions/runs/37450471489) 下载 `mizu-widget-debug` artifact 中的 `app-debug.apk`。测试包与正式包使用不同包名。
+
+## 功能
+
+| 功能 | 支持情况 |
+| --- | --- |
+| 图片格式 | JPG / JPEG、透明 PNG、WebP；GIF 显示静态帧 |
+| 多个组件 | 各自保存图片和设置，互不影响 |
+| 缩放 | 完整显示、居中裁剪、拉伸铺满 |
+| 圆角 | 0–64 dp |
+| 图片不透明度 | 0–100%，独立于背景 |
+| 背景 | 透明、白色、深色、浅水绿 |
+| 点击操作 | 打开设置、查看图片、无操作 |
+| 组件管理 | 桌面调整尺寸、重新编辑、手动刷新、删除清理 |
+
+GIF 动画播放、深色主题和国际化尚未实现。
 
 ## 使用
 
-打开应用 → 添加组件 → 选择图片 → 调整效果 → 添加到桌面 → 在桌面的确认窗口中确认。
+1. 打开应用，点击 **添加组件**。
+2. 点击 **选择图片**，从系统文件选择器中选取图片。
+3. 调整缩放、圆角、不透明度、背景与点击操作。
+4. 点击 **添加到桌面**，在桌面的确认窗口中确认。
 
-也可以长按桌面 → 小组件 → Mizu Widget，再选择图片并保存。需要支持 Android App Widget 的桌面；不支持快捷添加时使用桌面的小组件入口。
+也可以长按桌面 → 小组件 → Mizu Widget，选择图片后保存。若桌面不支持快捷添加，请使用这个入口。
 
-图片需要由文件提供方持续提供。删除原图、撤销授权、移除 SD 卡或云文件离线不可用时，组件显示修复入口，可以重新选择。应用不会在公共目录复制用户原图。
+已添加的组件可在应用内点击 **编辑**。透明区域的棋盘格仅用于设置页预览，不会显示在桌面上。
+
+原图需要持续可读。删除原图、撤销授权、卸载 SD 卡或云文件离线不可用时，可点击组件重新选择图片。
 
 ## 隐私
 
-图片仅在本机读取和渲染，不上传。APK 没有声明任何权限，包括网络和广泛存储权限，也没有分析、广告、账号或常驻服务。系统文件选择器自身可能展示其他应用的云端文件；这由文件提供方控制。
+图片仅在本机读取和处理，不上传。应用没有声明网络或广泛存储权限，无账号、广告、分析或常驻后台服务。图片通过系统文件选择器的持久 URI 授权读取；渲染缓存保存在应用私有目录，删除组件时清理不再使用的配置、缓存和授权。
 
-系统备份与设备迁移均排除本应用数据，防止无法迁移的 URI 授权和私人配置进入备份。
+系统备份和设备迁移均排除应用数据。系统文件选择器可能展示其他应用提供的云文件，其可用性由文件提供方决定。
 
 ## 构建与测试
 
-需要 JDK 17+、Android SDK 平台 37.0 与 Build Tools 36.0.0。Gradle 9.3.1 Wrapper 和 AGP 9.1.1 已固定版本。
+请先切换到上述开发分支。需要 **JDK 17+、Android SDK 37.0、Build Tools 36.0.0**；项目固定使用 Gradle 9.3.1 和 AGP 9.1.1。
+
+在本机 `local.properties` 中配置 `sdk.dir`，或设置 `ANDROID_HOME`。不要提交本机配置或签名材料。
+
+Windows：
 
 ```powershell
 .\gradlew.bat assembleDebug assembleDebugAndroidTest lint
@@ -48,35 +65,24 @@ chmod +x gradlew
 python3 tools/device_tests.py
 ```
 
-在本机的 local.properties 中配置 sdk.dir，或使用 ANDROID_HOME。此文件不能提交。
+Debug 包名为 `io.github.silent07137.mizuwidget.debug`。正式签名构建由 GitHub Actions 使用 Secrets 完成，仓库不保存 keystore、密码或安装包。
 
-debug 包名：io.github.silent07137.mizuwidget.debug，与正式包分开安装。
+采用 Java 17、Android 原生 Views、AppWidgetProvider、RemoteViews 和 ImageDecoder，无第三方运行库。图片解码与桌面位图均限制尺寸，避免直接传递原始大图。
 
-测试使用 Android 平台 Instrumentation，包含渲染像素、内存上限、配置隔离、恢复、清理和实际组件宿主验证。测试脚本仅临时授权测试宿主绑定组件，结束后撤回。测试 APK 中的图片提供方仅生成合成素材，正式 APK 不包含它。
+已验证：构建与 lint 通过；Android 16 真机 10 项测试通过；API 28 / 36 云端模拟器各 10 项测试通过，覆盖透明通道、缩放、内存上限、独立配置和实际组件宿主。
 
-## 技术选择
+## 项目文档
 
-当前实现采用 Java 17、Android 原生 Views、AppWidgetProvider、RemoteViews、ImageDecoder 和 SharedPreferences JSON。没有第三方运行时依赖。
+- [开发说明](https://github.com/silent07137/mizu_widget/blob/codex/mizu-initial-development/docs/DEVELOPMENT.md)
+- [测试记录](https://github.com/silent07137/mizu_widget/blob/codex/mizu-initial-development/docs/TESTING.md)
+- [发布与签名](https://github.com/silent07137/mizu_widget/blob/codex/mizu-initial-development/docs/RELEASE.md)
+- [更新记录](https://github.com/silent07137/mizu_widget/blob/codex/mizu-initial-development/CHANGELOG.md)
+- [构建工具许可](https://github.com/silent07137/mizu_widget/blob/codex/mizu-initial-development/docs/BUILD-TOOLS.md)
 
-手册中的 Kotlin / Compose / DataStore 为建议方案。为了保留 GPL-2.0-only，初版避免打包 Apache-2.0 的 AndroidX 或 Kotlin 运行库，采用平台 API；将来引入依赖时需要重新审核许可证。参见 [GNU 许可兼容性说明](https://www.gnu.org/licenses/license-list.html#apache2)。
+欢迎通过 [Issues](https://github.com/silent07137/mizu_widget/issues) 反馈问题，请附上 Android 版本、桌面应用和复现步骤。
 
-渲染在串行后台线程完成。解码图片最多约 2 百万像素；传给桌面的位图最多 524,288 像素（约 2 MiB），最大边长 1024 像素，避免将原始大图送入 Binder。组件没有定时刷新或后台循环。
+## 许可证
 
-## 仓库与发布
+本项目采用 **GNU General Public License version 2 only（GPL-2.0-only）**，详见 [LICENSE](LICENSE)。
 
-- [开发说明](docs/DEVELOPMENT.md)
-- [发布说明](docs/RELEASE.md)
-- [验证记录与人工验收清单](docs/TESTING.md)
-- [更新记录](CHANGELOG.md)
-
-CI 构建 debug 并运行 API 28 / 36 模拟器测试。Release 工作流只允许手动触发或 v* 标签，使用 GitHub Secrets 临时恢复签名材料，签名并验证 APK / AAB。本地只使用 debug key。
-
-源码仓库不保存 keystore、密码、本机配置、APK、AAB 或私人测试截图。
-
-## License
-
-License: **GPL-2.0-only**
-
-GNU General Public License version 2 only。详见 [LICENSE](LICENSE)。
-
-Copyright © 2026 silent07137。图标和测试素材为本项目自行绘制。Gradle Wrapper 的上游许可见 [构建工具声明](docs/BUILD-TOOLS.md)。
+Copyright © 2026 silent07137。应用图标与测试图片为本项目自行绘制。
