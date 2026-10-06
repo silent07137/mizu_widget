@@ -45,10 +45,6 @@ jobs:
   device-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    env:
-      ANDROID_USER_HOME: ${{ runner.temp }}/mizu-android
-      ANDROID_EMULATOR_HOME: ${{ runner.temp }}/mizu-android
-      ANDROID_AVD_HOME: ${{ runner.temp }}/mizu-android/avd
     strategy:
       fail-fast: false
       matrix:
@@ -64,6 +60,10 @@ jobs:
         run: bash tools/android_ci_sdk.sh
       - name: Install SDK and emulator
         run: |
+          export ANDROID_USER_HOME="$RUNNER_TEMP/mizu-android"
+          export ANDROID_EMULATOR_HOME="$ANDROID_USER_HOME"
+          export ANDROID_AVD_HOME="$ANDROID_USER_HOME/avd"
+          printf '%s\n' "ANDROID_USER_HOME=$ANDROID_USER_HOME" "ANDROID_EMULATOR_HOME=$ANDROID_EMULATOR_HOME" "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
           sdkmanager "platforms;android-37.0" "build-tools;36.0.0" "emulator" "system-images;android-${{ matrix.api }};google_apis;x86_64"
           mkdir -p "$ANDROID_AVD_HOME"
           echo "no" | avdmanager create avd --force --name mizu-ci --path "$ANDROID_AVD_HOME/mizu-ci.avd" --package "system-images;android-${{ matrix.api }};google_apis;x86_64"
