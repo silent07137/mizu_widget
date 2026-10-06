@@ -16,6 +16,8 @@ public final class WidgetConfig {
     public final boolean gif;
     public final boolean gifPlayback;
     public final int gifFps;
+    public final boolean gifLarge;
+    public final boolean gifQuality;
 
     public WidgetConfig(String uri, Scale scale, float radiusDp, float opacity,
                         int background, Click click, boolean gif) {
@@ -24,6 +26,12 @@ public final class WidgetConfig {
 
     public WidgetConfig(String uri, Scale scale, float radiusDp, float opacity,
                         int background, Click click, boolean gif, boolean gifPlayback, int gifFps) {
+        this(uri, scale, radiusDp, opacity, background, click, gif, gifPlayback, gifFps, false, true);
+    }
+
+    public WidgetConfig(String uri, Scale scale, float radiusDp, float opacity,
+                        int background, Click click, boolean gif, boolean gifPlayback, int gifFps,
+                        boolean gifLarge, boolean gifQuality) {
         this.uri = uri == null ? "" : uri;
         this.scale = scale == null ? Scale.FIT : scale;
         this.radiusDp = Float.isFinite(radiusDp) ? Math.max(0, Math.min(64, radiusDp)) : 20;
@@ -33,6 +41,8 @@ public final class WidgetConfig {
         this.gif = gif;
         this.gifPlayback = gif && gifPlayback;
         this.gifFps = gifFps == 1 || gifFps == 5 || gifFps == 15 || gifFps == 30 ? gifFps : 2;
+        this.gifLarge = gifLarge;
+        this.gifQuality = gifQuality;
     }
 
     public static WidgetConfig defaults() {
@@ -43,7 +53,8 @@ public final class WidgetConfig {
         return new JSONObject().put("uri", uri).put("scale", scale.name())
             .put("radius", radiusDp).put("opacity", opacity).put("background", background)
             .put("click", click.name()).put("gif", gif)
-            .put("gifPlayback", gifPlayback).put("gifFps", gifFps);
+            .put("gifPlayback", gifPlayback).put("gifFps", gifFps)
+            .put("gifLarge", gifLarge).put("gifQuality", gifQuality);
     }
 
     public static WidgetConfig fromJson(String raw) throws JSONException {
@@ -57,6 +68,7 @@ public final class WidgetConfig {
         return new WidgetConfig(json.optString("uri"), scale,
             (float) json.optDouble("radius", 20), (float) json.optDouble("opacity", 1),
             json.optInt("background", 0), click, json.optBoolean("gif", false),
-            json.optBoolean("gifPlayback", false), json.optInt("gifFps", 2));
+            json.optBoolean("gifPlayback", false), json.optInt("gifFps", 2),
+            json.optBoolean("gifLarge", false), json.optBoolean("gifQuality", true));
     }
 }

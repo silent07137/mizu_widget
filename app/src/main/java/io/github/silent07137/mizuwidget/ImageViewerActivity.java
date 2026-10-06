@@ -30,7 +30,7 @@ public final class ImageViewerActivity extends Activity {
         WidgetEngine.IO.execute(() -> {
             try {
                 WidgetConfig full = new WidgetConfig(config.uri, WidgetConfig.Scale.FIT, 0, 1, 0,
-                    config.click, config.gif, config.gifPlayback, config.gifFps);
+                    config.click, config.gif, config.gifPlayback, config.gifFps, config.gifLarge, config.gifQuality);
                 GifFrames.Sequence frames = null;
                 String label = config.gif ? "GIF 静态预览" : "";
                 if (full.gifPlayback) {

@@ -10,6 +10,8 @@
 
 测试构建可从 [GitHub Actions](https://github.com/silent07137/mizu_widget/actions/workflows/ci.yml) 最新成功运行下载 `mizu-widget-debug` artifact 中的 `app-debug.apk`。测试包与正式包使用不同包名，组件设置各自独立。
 
+0.2.1 开发版增加“允许大 GIF”（默认关闭）和“画质优先”（默认开启），正式版 0.2.0 尚不含这两个选项。画质优先在内存不足时减少采样帧；需要更高实际帧率时可手动选择帧率优先。
+
 ## 功能
 
 | 功能 | 支持情况 |
@@ -24,7 +26,7 @@
 | 点击操作 | 打开设置、查看图片、无操作 |
 | 组件管理 | 桌面调整尺寸、重新编辑、手动刷新、删除清理 |
 
-GIF 按时间采样后交给桌面的系统 ViewFlipper 循环播放，不需要应用常驻后台。帧数和总位图内存均有限制，高帧率会降低细节，长动画可能降帧，超限文件回退静态帧。扩展名或 MIME 类型写错的 GIF 也按文件内容识别。详见 [GIF 播放说明](https://github.com/silent07137/mizu_widget/blob/main/docs/GIF.md)。深色主题和国际化尚未实现。
+GIF 按时间采样后交给桌面的系统 ViewFlipper 循环播放，不需要应用常驻后台。帧数和总位图内存均有限制，画质与实际帧率受桌面内存上限约束，超限文件回退静态帧。扩展名或 MIME 类型写错的 GIF 也按文件内容识别。详见 [GIF 播放说明](https://github.com/silent07137/mizu_widget/blob/main/docs/GIF.md)。深色主题和国际化尚未实现。
 
 ## 使用
 
