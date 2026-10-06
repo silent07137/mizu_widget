@@ -1,6 +1,6 @@
 # 验证记录
 
-日期：2026-10-06。当前开发版本 0.2.1；云端 CI 状态以 [PR #2](https://github.com/silent07137/mizu_widget/pull/2) 为准。
+日期：2026-10-06。当前版本 0.2.1；[本次 CI](https://github.com/silent07137/mizu_widget/actions/runs/37485299790) 的构建、lint 及 API 28 / 36 各 17 项测试全部通过。
 
 ## 已验证
 

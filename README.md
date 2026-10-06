@@ -6,11 +6,11 @@
 
 ## 下载
 
-正式安装包请从 [Releases](https://github.com/silent07137/mizu_widget/releases) 下载，选择 `.apk` 文件安装。当前版本为 **0.2.0**，支持图片与 GIF 桌面组件；每个版本同时提供 AAB 和对应源码。
+正式安装包请从 [Releases](https://github.com/silent07137/mizu_widget/releases) 下载，选择 `.apk` 文件安装。当前版本为 **0.2.1**，支持图片与 GIF 桌面组件；每个版本同时提供 AAB 和对应源码。
 
 测试构建可从 [GitHub Actions](https://github.com/silent07137/mizu_widget/actions/workflows/ci.yml) 最新成功运行下载 `mizu-widget-debug` artifact 中的 `app-debug.apk`。测试包与正式包使用不同包名，组件设置各自独立。
 
-0.2.1 开发版增加“允许大 GIF”（默认关闭）和“画质优先”（默认开启），正式版 0.2.0 尚不含这两个选项。画质优先在内存不足时减少采样帧；需要更高实际帧率时可手动选择帧率优先。
+支持“允许大 GIF”（默认关闭）和“画质优先”（默认开启）。画质优先在内存不足时减少采样帧；需要更高实际帧率时可手动选择帧率优先。
 
 ## 功能
 
@@ -51,7 +51,7 @@ GIF 按时间采样后交给桌面的系统 ViewFlipper 循环播放，不需要
 
 ## 构建与测试
 
-需要 **JDK 17+、Android SDK 37.0、Build Tools 36.0.0**；项目固定使用 Gradle 9.3.1 和 AGP 9.1.1。源码位于 `main` 分支，版本标签为 `v0.2.0`。
+需要 **JDK 17+、Android SDK 37.0、Build Tools 36.0.0**；项目固定使用 Gradle 9.3.1 和 AGP 9.1.1。源码位于 `main` 分支，版本标签为 `v0.2.1`。
 
 在本机 `local.properties` 中配置 `sdk.dir`，或设置 `ANDROID_HOME`。不要提交本机配置或签名材料。
 
@@ -74,7 +74,7 @@ Debug 包名为 `io.github.silent07137.mizuwidget.debug`。正式签名构建由
 
 采用 Java 17、Android 原生 Views、AppWidgetProvider、RemoteViews、ImageDecoder 和平台 Movie，无第三方运行库。图片解码与桌面位图均限制尺寸，避免直接传递原始大图。
 
-已验证：构建与 lint 通过；Android 16 真机 16 项测试通过，覆盖透明通道、缩放、内存上限、独立配置、GIF 换帧与实际组件宿主。API 28 / 36 云端兼容性结果见 PR 检查与测试记录。
+已验证：构建与 lint 通过；Android 16 真机 17 项常规测试与 2 项真实 GIF 专项检查通过；API 28 / 36 云端各 17 项测试通过，覆盖透明通道、缩放、内存上限、独立配置、大 GIF、画质策略和实际组件宿主。详情见测试记录。
 
 ## 项目文档
 
