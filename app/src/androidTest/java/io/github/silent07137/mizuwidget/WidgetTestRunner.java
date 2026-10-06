@@ -240,7 +240,7 @@ public final class WidgetTestRunner extends Instrumentation {
             try {
                 AppWidgetManager manager = AppWidgetManager.getInstance(target);
                 check(manager.bindAppWidgetIdIfAllowed(id, WidgetEngine.provider(target)), "GIF test bind required");
-                store.save(id, gif("animated", 10, 1, 0, 5));
+                store.save(id, gif("animated", 10, 1, 0, 30));
                 WidgetEngine.update(target, id);
                 activity = startActivitySync(new android.content.Intent(target, MainActivity.class)
                     .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
