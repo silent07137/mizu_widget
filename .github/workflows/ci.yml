@@ -45,6 +45,10 @@ jobs:
   device-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      ANDROID_USER_HOME: ${{ runner.temp }}/mizu-android
+      ANDROID_EMULATOR_HOME: ${{ runner.temp }}/mizu-android
+      ANDROID_AVD_HOME: ${{ runner.temp }}/mizu-android/avd
     strategy:
       fail-fast: false
       matrix:
@@ -61,16 +65,19 @@ jobs:
       - name: Install SDK and emulator
         run: |
           sdkmanager "platforms;android-37.0" "build-tools;36.0.0" "emulator" "system-images;android-${{ matrix.api }};google_apis;x86_64"
-          echo "no" | avdmanager create avd --force --name mizu-ci --package "system-images;android-${{ matrix.api }};google_apis;x86_64"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "no" | avdmanager create avd --force --name mizu-ci --path "$ANDROID_AVD_HOME/mizu-ci.avd" --package "system-images;android-${{ matrix.api }};google_apis;x86_64"
           sudo chmod 666 /dev/kvm
+          "$ANDROID_HOME/emulator/emulator" -list-avds | grep -x mizu-ci
       - name: Build test APKs
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon assembleDebug assembleDebugAndroidTest
       - name: Boot and test
         run: |
-          "$ANDROID_HOME/emulator/emulator" -avd mizu-ci -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > /tmp/mizu-emulator.log 2>&1 &
-          adb wait-for-device
+          trap 'cat /tmp/mizu-emulator.log' EXIT
+          "$ANDROID_HOME/emulator/emulator" -avd mizu-ci -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader > /tmp/mizu-emulator.log 2>&1 &
+          timeout 90 adb wait-for-device
           timeout 240 bash -c 'until [ "$(adb shell getprop sys.boot_completed | tr -d "\r")" = "1" ]; do sleep 2; done'
           adb shell input keyevent 82
           python3 tools/device_tests.py
@@ -80,4 +87,6 @@ jobs:
         with:
           name: device-tests-api-${{ matrix.api }}
           if-no-files-found: warn
-          path: test-artifacts/instrumentation.txt
+          path: |
+            test-artifacts/instrumentation.txt
+            /tmp/mizu-emulator.log
