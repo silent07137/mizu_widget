@@ -20,14 +20,15 @@ import java.util.List;
 @SuppressWarnings("deprecation")
 final class GifFrames {
     static final int MAX_BYTES = 8 * 1024 * 1024;
+    static final int MAX_LARGE_BYTES = 32 * 1024 * 1024;
     static final int MAX_FRAMES = 24;
     static final int MAX_HIGH_FRAMES = 120;
     static int intervalFor(int fps) { return (1000 + fps - 1) / fps; }
     static long pixelBudget(Context context) {
         android.util.DisplayMetrics display = context.getApplicationContext().getResources().getDisplayMetrics();
-        // AppWidgetService caps bitmaps at 1.5 screenfuls; retain a margin on small displays.
+        // Use up to 8 MiB, below AppWidgetService's 1.5 screenfuls with a margin.
         long screen = (long) Math.max(1, display.widthPixels) * Math.max(1, display.heightPixels);
-        return Math.max(MAX_HIGH_FRAMES, Math.min(Geometry.MAX_PIXELS, screen));
+        return Math.max(MAX_HIGH_FRAMES, Math.min(2097152L, screen * 5 / 4));
     }
     static final long MAX_SOURCE_PIXELS = 2097152L;
     // Bound even a decoder that retains every source frame, before invoking native code.
@@ -64,12 +65,17 @@ final class GifFrames {
     }
 
     static Metadata inspect(byte[] data) throws IOException {
-        Reader reader = new Reader(data);
+        return inspect(data, false);
+    }
+
+    static Metadata inspect(byte[] data, boolean large) throws IOException {
+        Reader reader = new Reader(data, large);
         String header = new String(reader.bytes(6), StandardCharsets.US_ASCII);
         if (!"GIF87a".equals(header) && !"GIF89a".equals(header)) throw new IOException("不是有效的 GIF");
         int width = reader.word(), height = reader.word();
         long pixels = (long) width * height;
-        if (width < 1 || height < 1 || pixels > MAX_SOURCE_PIXELS) throw new IOException("GIF 尺寸超出播放上限");
+        if (width < 1 || height < 1 || pixels > (large ? MAX_SOURCE_PIXELS * 2 : MAX_SOURCE_PIXELS))
+            throw new IOException("GIF 尺寸超出播放上限");
         int packed = reader.next();
         reader.skip(2);
         if ((packed & 128) != 0) reader.skip(3 * (1 << ((packed & 7) + 1)));
@@ -98,7 +104,8 @@ final class GifFrames {
                 reader.blocks();
                 frames++;
                 duration += delay;
-                if (frames > 128 || pixels * frames > MAX_SOURCE_FRAME_PIXELS || duration > 120000)
+                if (frames > (large ? 512 : 128) || pixels * frames > MAX_SOURCE_FRAME_PIXELS * (large ? 4 : 1)
+                    || duration > (large ? 300000 : 120000))
                     throw new IOException("GIF 长度或帧数超出播放上限");
                 delay = 100;
             } else throw new IOException("GIF 数据损坏");
@@ -117,12 +124,13 @@ final class GifFrames {
             byte[] buffer = new byte[8192];
             int count;
             while ((count = stream.read(buffer)) != -1) {
-                if (bytes.size() + count > MAX_BYTES) throw new IOException("GIF 文件超过 8 MiB");
+                if (bytes.size() + count > (config.gifLarge ? MAX_LARGE_BYTES : MAX_BYTES))
+                    throw new IOException("GIF 文件超出播放上限");
                 bytes.write(buffer, 0, count);
             }
             data = bytes.toByteArray();
         }
-        Metadata metadata = inspect(data);
+        Metadata metadata = inspect(data, config.gifLarge);
         if (metadata.frames < 2) throw new IOException("GIF 只有一帧");
         Movie movie = Movie.decodeByteArray(data, 0, data.length);
         if (movie == null || movie.width() != metadata.width || movie.height() != metadata.height)
@@ -131,9 +139,14 @@ final class GifFrames {
         int requestedInterval = intervalFor(config.gifFps);
         int limit = config.gifFps > 5 ? MAX_HIGH_FRAMES : MAX_FRAMES;
         int count = Math.min(limit, Math.max(2, (duration + requestedInterval - 1) / requestedInterval));
-        int interval = Math.max(requestedInterval, (duration + count - 1) / count);
         int[] size = Geometry.boundedSize(width, height);
         long budget = pixelBudget(context);
+        if (config.gifQuality) {
+            // Prefer at least 75% of each output edge; trade sampling rate for detail.
+            long minimumPixels = Math.max(1, (long) size[0] * size[1] * 9 / 16);
+            count = Math.min(count, (int) Math.max(2, budget / minimumPixels));
+        }
+        int interval = Math.max(requestedInterval, (duration + count - 1) / count);
         double factor = Math.min(1, Math.sqrt(budget / (double) count / ((double) size[0] * size[1])));
         size[0] = Math.max(1, (int) (size[0] * factor));
         size[1] = Math.max(1, (int) (size[1] * factor));
@@ -168,8 +181,8 @@ final class GifFrames {
     private static final class Reader {
         private final byte[] data;
         private int offset;
-        Reader(byte[] data) throws IOException {
-            if (data.length > MAX_BYTES) throw new IOException("GIF 文件超过 8 MiB");
+        Reader(byte[] data, boolean large) throws IOException {
+            if (data.length > (large ? MAX_LARGE_BYTES : MAX_BYTES)) throw new IOException("GIF 文件超出播放上限");
             this.data = data;
         }
         int next() throws IOException {

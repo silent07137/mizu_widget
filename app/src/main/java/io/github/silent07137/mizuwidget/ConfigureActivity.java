@@ -38,6 +38,8 @@ public final class ConfigureActivity extends Activity {
     private LinearLayout gifOptions;
     private Switch gifSwitch;
     private Spinner gifRate;
+    private Switch gifLarge;
+    private Spinner gifQuality;
     private static final int[] GIF_RATES = {1, 2, 5, 15, 30};
     private volatile int generation;
     private boolean busy;
@@ -90,6 +92,23 @@ public final class ConfigureActivity extends Activity {
                 refreshPreview();
             }
         });
+        label(gifOptions, "播放偏好");
+        gifQuality = spinner(gifOptions, new String[]{"画质优先", "帧率优先"}, config.gifQuality ? 0 : 1, index -> {
+            config = playbackConfig(config.gifLarge, index == 0);
+            refreshPreview();
+        });
+        gifLarge = new Switch(this);
+        gifLarge.setText("允许大 GIF");
+        gifLarge.setTextColor(Ui.INK);
+        gifLarge.setMinimumHeight(Ui.dp(this, 48));
+        gifLarge.setOnCheckedChangeListener((button, checked) -> {
+            if (!busy && checked != config.gifLarge) {
+                config = playbackConfig(checked, config.gifQuality);
+                refreshPreview();
+            }
+        });
+        gifOptions.addView(gifLarge);
+        gifOptions.addView(Ui.text(this, "更占内存，失败时显示静态图片", 12, Ui.MUTED));
         Ui.gap(this, page, 14);
         LinearLayout card = Ui.card(this, page);
         label(card, "缩放方式");
@@ -130,11 +149,16 @@ public final class ConfigureActivity extends Activity {
         refreshPreview();
     }
     private WidgetConfig copy(String uri, WidgetConfig.Scale scale, float radius, float opacity, int bg, WidgetConfig.Click click, boolean gif) {
-        return new WidgetConfig(uri, scale, radius, opacity, bg, click, gif, config.gifPlayback, config.gifFps);
+        return new WidgetConfig(uri, scale, radius, opacity, bg, click, gif, config.gifPlayback, config.gifFps,
+            config.gifLarge, config.gifQuality);
     }
     private WidgetConfig animationConfig(boolean play, int fps) {
         return new WidgetConfig(config.uri, config.scale, config.radiusDp, config.opacity, config.background,
-            config.click, config.gif, play, fps);
+            config.click, config.gif, play, fps, config.gifLarge, config.gifQuality);
+    }
+    private WidgetConfig playbackConfig(boolean large, boolean quality) {
+        return new WidgetConfig(config.uri, config.scale, config.radiusDp, config.opacity, config.background,
+            config.click, config.gif, config.gifPlayback, config.gifFps, large, quality);
     }
     private int rateIndex() {
         for (int i = 0; i < GIF_RATES.length; i++) if (GIF_RATES[i] == config.gifFps) return i;
@@ -219,6 +243,9 @@ public final class ConfigureActivity extends Activity {
         gifSwitch.setChecked(config.gifPlayback);
         gifRate.setSelection(rateIndex());
         gifRate.setEnabled(config.gifPlayback);
+        gifLarge.setChecked(config.gifLarge);
+        gifQuality.setSelection(config.gifQuality ? 0 : 1);
+        gifQuality.setEnabled(config.gifPlayback);
     }
     private final Runnable previewWork = () -> {
         final int version = generation;
@@ -234,7 +261,8 @@ public final class ConfigureActivity extends Activity {
             try {
                 boolean gif = GifFrames.isGif(getApplicationContext(), requested.uri);
                 if (gif != requested.gif) snapshot = new WidgetConfig(requested.uri, requested.scale,
-                    requested.radiusDp, requested.opacity, requested.background, requested.click, gif, gif, requested.gifFps);
+                    requested.radiusDp, requested.opacity, requested.background, requested.click, gif, gif, requested.gifFps,
+                    requested.gifLarge, requested.gifQuality);
                 if (snapshot.gifPlayback) {
                     try { frames = GifFrames.render(getApplicationContext(), snapshot, bounds[0], bounds[1], density); }
                     catch (IOException | RuntimeException | OutOfMemoryError e) { failure = "GIF 无法播放或超限 · 静态预览"; }
@@ -253,14 +281,15 @@ public final class ConfigureActivity extends Activity {
                 if (animation != null) playback.show(animation); else playback.show(result);
                 if (config.gif != identified.gif) {
                     config = new WidgetConfig(config.uri, config.scale, config.radiusDp, config.opacity,
-                        config.background, config.click, identified.gif, identified.gifPlayback, config.gifFps);
+                        config.background, config.click, identified.gif, identified.gifPlayback, config.gifFps,
+                        config.gifLarge, config.gifQuality);
                     refreshGifOptions();
                 }
                 ready = result != null || animation != null;
                 save.setEnabled(ready && !busy);
                 status.setText(message != null ? message : animation != null
-                    ? "GIF · " + (animation.intervalMs > GifFrames.intervalFor(identified.gifFps) ? "已降帧" : identified.gifFps + " FPS")
-                        + (identified.gifFps > 5 ? " · 细节降低" : "")
+                    ? "GIF · " + String.format(java.util.Locale.ROOT, "%.1f FPS", 1000f / animation.intervalMs)
+                        + (animation.intervalMs > GifFrames.intervalFor(identified.gifFps) ? " · 已降帧" : "")
                     : identified.gif ? "GIF 静态预览" : "预览");
             });
         });

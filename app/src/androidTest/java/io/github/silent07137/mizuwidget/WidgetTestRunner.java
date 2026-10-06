@@ -17,8 +17,17 @@ public final class WidgetTestRunner extends Instrumentation {
     private interface Test { void run() throws Exception; }
     private final ArrayList<String> names = new ArrayList<>();
     private final ArrayList<Test> tests = new ArrayList<>();
+    private String realGifIds = "";
+    private boolean realGifOnly;
     private void add(String name, Test test) { names.add(name); tests.add(test); }
-    @Override public void onCreate(Bundle args) { super.onCreate(args); start(); }
+    @Override public void onCreate(Bundle args) {
+        super.onCreate(args);
+        if (args != null) {
+            realGifIds = args.getString("realGifWidgetIds", "");
+            realGifOnly = "true".equals(args.getString("realGifOnly"));
+        }
+        start();
+    }
     private WidgetConfig config(String name, WidgetConfig.Scale scale, float radius, float alpha, int bg) {
         return new WidgetConfig(FixtureProvider.ROOT + name, scale, radius, alpha, bg, WidgetConfig.Click.CONFIGURE, "gif".equals(name));
     }
@@ -170,6 +179,25 @@ public final class WidgetTestRunner extends Instrumentation {
             check(gif("animated", 0, 1, 0, 99).gifFps == 2, "unsupported rate defaults safely");
             WidgetConfig png = new WidgetConfig("png", null, 0, 1, 0, null, false, true, 5);
             check(!png.gifPlayback, "static images do not animate");
+            check(!old.gifLarge && old.gifQuality, "legacy settings default to ordinary input and quality priority");
+            WidgetConfig choices = new WidgetConfig("gif", null, 20, 1, 0, null, true, true, 30, true, false);
+            choices = WidgetConfig.fromJson(choices.toJson().toString());
+            check(choices.gifLarge && !choices.gifQuality, "large input and rate priority persist independently");
+        });
+        add("gifQualityPriorityPreservesDetail", () -> {
+            WidgetConfig quality = gif("animated", 0, 1, 0, 30);
+            WidgetConfig rate = new WidgetConfig(quality.uri, quality.scale, 0, 1, 0, quality.click,
+                true, true, 30, false, false);
+            try (GifFrames.Sequence clear = GifFrames.render(target, quality, 4000, 3000, 1);
+                 GifFrames.Sequence fast = GifFrames.render(target, rate, 4000, 3000, 1)) {
+                check(clear.frames.get(0).getWidth() > fast.frames.get(0).getWidth(), "quality priority keeps more detail");
+                check(clear.frames.size() < fast.frames.size() && clear.intervalMs > fast.intervalMs,
+                    "quality priority trades sampling rate for resolution");
+                int[] bounded = Geometry.boundedSize(4000, 3000);
+                if (GifFrames.pixelBudget(target) >= (long) bounded[0] * bounded[1] * 9 / 8)
+                    check(clear.frames.get(0).getWidth() >= bounded[0] * .75 - 1,
+                        "detail floor honored when two frames fit");
+            }
         });
         add("gifFramesTimingAndMemory", () -> {
             for (int fps : new int[]{1, 2, 5, 15, 30}) {
@@ -233,6 +261,7 @@ public final class WidgetTestRunner extends Instrumentation {
             extra[extra.length - 1] = 0x3b;
             try { GifFrames.inspect(extra); } catch (java.io.IOException e) { rejected = true; }
             check(rejected, "aggregate source frames exceed native decode budget");
+            check(GifFrames.inspect(extra, true).frames > 8, "large GIF opt-in accepts expanded source budget");
         });
         add("gifActualHostPlaybackFallbackAndDetach", () -> {
             final AppWidgetHost[] host = new AppWidgetHost[1];
@@ -250,6 +279,7 @@ public final class WidgetTestRunner extends Instrumentation {
                     .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
                 final Activity screen = activity;
                 runOnMainSync(() -> {
+                    screen.getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                     host[0].startListening();
                     view[0] = host[0].createView(target, id, manager.getAppWidgetInfo(id));
                     screen.setContentView(view[0]);
@@ -299,6 +329,49 @@ public final class WidgetTestRunner extends Instrumentation {
                 store.delete(id);
             }
         });
+        if (realGifOnly) { names.clear(); tests.clear(); }
+        if (!realGifIds.isEmpty()) {
+            for (String value : realGifIds.split(",")) {
+                int id = Integer.parseInt(value.trim());
+                add("realGifWidget" + id, () -> {
+                    check(WidgetEngine.owns(target, id), "real GIF widget still belongs to this app");
+                    WidgetConfig saved = new ConfigStore(target).get(id);
+                    check(saved != null && saved.gif && saved.gifLarge, "large GIF settings persisted");
+                    WidgetConfig ordinary = new WidgetConfig(saved.uri, saved.scale, saved.radiusDp, saved.opacity,
+                        saved.background, saved.click, true, true, 30, false, true);
+                    boolean rejected = false;
+                    try (GifFrames.Sequence ignored = GifFrames.render(target, ordinary, 540, 540, 1)) { }
+                    catch (java.io.IOException expected) { rejected = true; }
+                    check(rejected, "ordinary mode rejects this over-budget source");
+                    int qualityWidth = 0;
+                    for (boolean quality : new boolean[]{true, false}) {
+                        WidgetConfig selected = new WidgetConfig(saved.uri, saved.scale, saved.radiusDp, saved.opacity,
+                            saved.background, saved.click, true, true, 30, true, quality);
+                        try (GifFrames.Sequence sequence = GifFrames.render(target, selected, 540, 540, 1)) {
+                            long bytes = 0;
+                            java.util.HashSet<Integer> images = new java.util.HashSet<>();
+                            for (Bitmap bitmap : sequence.frames) {
+                                bytes += bitmap.getAllocationByteCount();
+                                int hash = 1;
+                                for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++)
+                                    hash = 31 * hash + bitmap.getPixel(x * bitmap.getWidth() / 16, y * bitmap.getHeight() / 16);
+                                images.add(hash);
+                            }
+                            check(images.size() > 1 && bytes <= GifFrames.pixelBudget(target) * 4,
+                                "real animation changes pixels within desktop memory budget");
+                            int width = sequence.frames.get(0).getWidth();
+                            if (quality) qualityWidth = width;
+                            else check(qualityWidth > width, "real GIF retains more detail with quality priority");
+                            Bundle note = new Bundle();
+                            note.putString("stream", "\nReal GIF " + id + (quality ? " quality" : " rate") + ": " +
+                                width + "x" + sequence.frames.get(0).getHeight() + ", frames=" + sequence.frames.size() +
+                                ", interval=" + sequence.intervalMs + "ms, bytes=" + bytes + "\n");
+                            sendStatus(0, note);
+                        }
+                    }
+                });
+            }
+        }
         int failed = 0;
         for (int i = 0; i < tests.size(); i++) {
             Bundle status = new Bundle();
