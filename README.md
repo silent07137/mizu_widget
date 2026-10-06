@@ -4,11 +4,11 @@
 
 **Android 9+ · 离线运行 · 无广告 · GPL-2.0-only**
 
-## 项目进度
+## 下载
 
-**0.2.0 已加入 GIF 循环播放，尚未发布正式安装包。** 源码目前位于 [开发分支](https://github.com/silent07137/mizu_widget/tree/codex/mizu-initial-development)，正在通过 [PR #1](https://github.com/silent07137/mizu_widget/pull/1) 合入主分支。
+正式安装包请从 [Releases](https://github.com/silent07137/mizu_widget/releases) 下载，选择 `.apk` 文件安装。当前版本为 **0.2.0**，支持图片与 GIF 桌面组件；每个版本同时提供 AAB 和对应源码。
 
-测试构建可从 [GitHub Actions](https://github.com/silent07137/mizu_widget/actions/workflows/ci.yml) 中选择开发分支最新成功运行，下载 `mizu-widget-debug` artifact 中的 `app-debug.apk`。测试包与正式包使用不同包名。
+测试构建可从 [GitHub Actions](https://github.com/silent07137/mizu_widget/actions/workflows/ci.yml) 最新成功运行下载 `mizu-widget-debug` artifact 中的 `app-debug.apk`。测试包与正式包使用不同包名，组件设置各自独立。
 
 ## 功能
 
@@ -24,7 +24,7 @@
 | 点击操作 | 打开设置、查看图片、无操作 |
 | 组件管理 | 桌面调整尺寸、重新编辑、手动刷新、删除清理 |
 
-GIF 按时间采样后交给桌面的系统 ViewFlipper 循环播放，不需要应用常驻后台。帧数和总位图内存均有限制，高帧率会降低细节，长动画可能降帧，超限文件回退静态帧。扩展名或 MIME 类型写错的 GIF 也按文件内容识别。详见 [GIF 播放说明](https://github.com/silent07137/mizu_widget/blob/codex/mizu-initial-development/docs/GIF.md)。深色主题和国际化尚未实现。
+GIF 按时间采样后交给桌面的系统 ViewFlipper 循环播放，不需要应用常驻后台。帧数和总位图内存均有限制，高帧率会降低细节，长动画可能降帧，超限文件回退静态帧。扩展名或 MIME 类型写错的 GIF 也按文件内容识别。详见 [GIF 播放说明](https://github.com/silent07137/mizu_widget/blob/main/docs/GIF.md)。深色主题和国际化尚未实现。
 
 ## 使用
 
@@ -49,7 +49,7 @@ GIF 按时间采样后交给桌面的系统 ViewFlipper 循环播放，不需要
 
 ## 构建与测试
 
-请先切换到上述开发分支。需要 **JDK 17+、Android SDK 37.0、Build Tools 36.0.0**；项目固定使用 Gradle 9.3.1 和 AGP 9.1.1。
+需要 **JDK 17+、Android SDK 37.0、Build Tools 36.0.0**；项目固定使用 Gradle 9.3.1 和 AGP 9.1.1。源码位于 `main` 分支，版本标签为 `v0.2.0`。
 
 在本机 `local.properties` 中配置 `sdk.dir`，或设置 `ANDROID_HOME`。不要提交本机配置或签名材料。
 
@@ -76,12 +76,12 @@ Debug 包名为 `io.github.silent07137.mizuwidget.debug`。正式签名构建由
 
 ## 项目文档
 
-- [开发说明](https://github.com/silent07137/mizu_widget/blob/codex/mizu-initial-development/docs/DEVELOPMENT.md)
-- [测试记录](https://github.com/silent07137/mizu_widget/blob/codex/mizu-initial-development/docs/TESTING.md)
-- [GIF 播放说明](https://github.com/silent07137/mizu_widget/blob/codex/mizu-initial-development/docs/GIF.md)
-- [发布与签名](https://github.com/silent07137/mizu_widget/blob/codex/mizu-initial-development/docs/RELEASE.md)
-- [更新记录](https://github.com/silent07137/mizu_widget/blob/codex/mizu-initial-development/CHANGELOG.md)
-- [构建工具许可](https://github.com/silent07137/mizu_widget/blob/codex/mizu-initial-development/docs/BUILD-TOOLS.md)
+- [开发说明](https://github.com/silent07137/mizu_widget/blob/main/docs/DEVELOPMENT.md)
+- [测试记录](https://github.com/silent07137/mizu_widget/blob/main/docs/TESTING.md)
+- [GIF 播放说明](https://github.com/silent07137/mizu_widget/blob/main/docs/GIF.md)
+- [发布与签名](https://github.com/silent07137/mizu_widget/blob/main/docs/RELEASE.md)
+- [更新记录](https://github.com/silent07137/mizu_widget/blob/main/CHANGELOG.md)
+- [构建工具许可](https://github.com/silent07137/mizu_widget/blob/main/docs/BUILD-TOOLS.md)
 
 欢迎通过 [Issues](https://github.com/silent07137/mizu_widget/issues) 反馈问题，请附上 Android 版本、桌面应用和复现步骤。
 
