@@ -17,7 +17,7 @@ final class WidgetRenderer {
         Uri uri = Uri.parse(config.uri);
         if (!"content".equals(uri.getScheme())) throw new IOException("请选择系统文件选择器中的图片");
         int[] size = Geometry.boundedSize(width, height);
-        // The decoder also applies EXIF orientation. GIFs decode to a still frame in this release.
+        // Applies EXIF orientation; this static path also supplies GIF fallback frames.
         Bitmap source = ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.getContentResolver(), uri),
             (decoder, info, unused) -> {
                 int sourceWidth = info.getSize().getWidth(), sourceHeight = info.getSize().getHeight();

@@ -20,7 +20,8 @@ public final class FixtureProvider extends ContentProvider {
     @Override public boolean onCreate() { return true; }
     @Override public String getType(Uri uri) {
         String name = uri.getLastPathSegment();
-        if ("gif".equals(name)) return "image/gif";
+        if ("gif".equals(name) || "animated".equals(name) || "gifalpha".equals(name) || "giflong".equals(name)) return "image/gif";
+        if ("gifasjpeg".equals(name)) return "image/jpeg";
         if ("jpeg".equals(name)) return "image/jpeg";
         if ("webp".equals(name)) return "image/webp";
         return "image/png";
@@ -28,12 +29,14 @@ public final class FixtureProvider extends ContentProvider {
     @Override public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
         String name = uri.getLastPathSegment();
         if (!"r".equals(mode) || name == null ||
-            !java.util.Arrays.asList("transparent", "red", "blue", "large", "jpeg", "webp", "gif", "corrupt").contains(name))
+            !java.util.Arrays.asList("transparent", "red", "blue", "large", "jpeg", "webp", "gif", "animated", "gifalpha", "giflong", "gifasjpeg", "corrupt").contains(name))
             throw new FileNotFoundException("Unknown fixture");
         File file = new File(getContext().getCacheDir(), "mizu_fixture_" + name);
         if (!file.exists()) {
             try (FileOutputStream out = new FileOutputStream(file)) {
-                if ("gif".equals(name)) {
+                if ("giflong".equals(name)) out.write(GifFixture.create(false, 1000));
+                else if ("gifasjpeg".equals(name) || "animated".equals(name) || "gifalpha".equals(name)) out.write(GifFixture.create("gifalpha".equals(name)));
+                else if ("gif".equals(name)) {
                     out.write(android.util.Base64.decode("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", android.util.Base64.DEFAULT));
                 } else if ("corrupt".equals(name)) out.write(new byte[]{1, 2, 3, 4});
                 else {

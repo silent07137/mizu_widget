@@ -24,6 +24,10 @@ public final class WidgetTestRunner extends Instrumentation {
     }
     private void check(boolean condition, String message) { if (!condition) throw new AssertionError(message); }
     private void near(float actual, float expected, String message) { check(Math.abs(actual - expected) < .01, message + ": " + actual); }
+    private WidgetConfig gif(String name, float radius, float alpha, int bg, int fps) {
+        return new WidgetConfig(FixtureProvider.ROOT + name, WidgetConfig.Scale.STRETCH, radius, alpha,
+            bg, WidgetConfig.Click.CONFIGURE, true, true, fps);
+    }
     @Override public void onStart() {
         Context target = getTargetContext();
         add("boundedBitmapMemory", () -> {
@@ -151,6 +155,143 @@ public final class WidgetTestRunner extends Instrumentation {
             boolean kotlinAbsent = false;
             try { Class.forName("kotlin.jvm.internal.Intrinsics"); } catch (ClassNotFoundException e) { kotlinAbsent = true; }
             check(kotlinAbsent, "no Kotlin runtime bundled");
+        });
+        add("gifConfigMigrationAndPersistence", () -> {
+            WidgetConfig old = WidgetConfig.fromJson("{\"gif\":true,\"uri\":\"legacy\"}");
+            check(!old.gifPlayback && old.gifFps == 2, "existing GIF remains static");
+            WidgetConfig restored = WidgetConfig.fromJson(gif("animated", 12, .5f, Color.BLUE, 5).toJson().toString());
+            check(restored.gifPlayback && restored.gifFps == 5 && restored.radiusDp == 12, "GIF options persist");
+            check(WidgetConfig.defaults().gifFps == 2, "high frame rate is off by default");
+            check(WidgetConfig.fromJson(gif("animated", 0, 1, 0, 30).toJson().toString()).gifFps == 30, "high rate persists when chosen");
+            check(gif("animated", 0, 1, 0, 99).gifFps == 2, "unsupported rate defaults safely");
+            WidgetConfig png = new WidgetConfig("png", null, 0, 1, 0, null, false, true, 5);
+            check(!png.gifPlayback, "static images do not animate");
+        });
+        add("gifFramesTimingAndMemory", () -> {
+            for (int fps : new int[]{1, 2, 5, 15, 30}) {
+                try (GifFrames.Sequence frames = GifFrames.render(target, gif("animated", 0, 1, 0, fps), 4000, 3000, 1)) {
+                    long bytes = 0;
+                    boolean red = false, blue = false;
+                    for (Bitmap image : frames.frames) {
+                        bytes += image.getAllocationByteCount();
+                        int color = image.getPixel(image.getWidth() / 2, image.getHeight() / 2);
+                        red |= Color.red(color) == 255;
+                        blue |= Color.blue(color) == 255;
+                    }
+                    check(bytes <= Geometry.MAX_PIXELS * 4 && frames.frames.size() <= (fps > 5 ? 120 : 24), "total GIF payload bounded");
+                    check(red && (fps == 1 || blue), "sampled timeline retains distinct frames");
+                    check(frames.intervalMs >= GifFrames.intervalFor(fps), "rate limit honored");
+                }
+            }
+        });
+        add("gifTransparencyDisposalCornersAndOpacity", () -> {
+            try (GifFrames.Sequence frames = GifFrames.render(target, gif("gifalpha", 20, .5f, 0, 5), 200, 200, 1)) {
+                Bitmap first = frames.frames.get(0), last = frames.frames.get(frames.frames.size() - 1);
+                check(Color.alpha(first.getPixel(0, 0)) == 0, "GIF rounded corner clipped");
+                check(Math.abs(Color.alpha(first.getPixel(50, 100)) - 128) <= 1, "GIF opacity applied");
+                check(Color.alpha(first.getPixel(150, 100)) == 0, "GIF transparent area preserved");
+                check(Color.alpha(last.getPixel(50, 100)) == 0, "previous red frame disposed");
+                check(Color.blue(last.getPixel(150, 100)) == 255, "next blue frame rendered");
+            }
+            try (GifFrames.Sequence frames = GifFrames.render(target, gif("animated", 0, 0, Color.GREEN, 2), 100, 100, 1)) {
+                check(frames.frames.get(0).getPixel(50, 50) == Color.GREEN, "GIF background independent of image opacity");
+            }
+        });
+        add("gifHeaderDetectionAndLongSampling", () -> {
+            check(GifFrames.isGif(target, FixtureProvider.ROOT + "gifasjpeg"), "GIF identified despite JPEG MIME type");
+            check(!GifFrames.isGif(target, FixtureProvider.ROOT + "jpeg"), "JPEG stays static");
+            try (GifFrames.Sequence frames = GifFrames.render(target, gif("giflong", 0, 1, 0, 5), 100000, 1, 1)) {
+                long bytes = 0;
+                for (Bitmap bitmap : frames.frames) bytes += bitmap.getAllocationByteCount();
+                check(frames.frames.size() == 24 && frames.intervalMs > 200, "long GIF reduces rate at sample limit");
+                check(bytes <= Geometry.MAX_PIXELS * 4, "panoramic GIF stays within payload budget");
+            }
+        });
+        add("gifRejectsOversizedAndBrokenInput", () -> {
+            byte[] valid = GifFixture.create(false);
+            byte[] large = valid.clone(); large[6] = (byte) 255; large[7] = 127; large[8] = (byte) 128;
+            for (byte[] data : new byte[][]{large, java.util.Arrays.copyOf(valid, valid.length - 1), new byte[]{1, 2, 3}}) {
+                boolean rejected = false;
+                try { GifFrames.inspect(data); } catch (java.io.IOException e) { rejected = true; }
+                check(rejected, "invalid GIF rejected before native decode");
+            }
+            int header = 44, body = valid.length - header - 1;
+            byte[] many = java.util.Arrays.copyOf(valid, valid.length + body);
+            System.arraycopy(valid, header, many, valid.length - 1, body);
+            many[many.length - 1] = 0x3b;
+            many[6] = 0; many[7] = 8; many[8] = 0; many[9] = 4;
+            boolean rejected = false;
+            try { GifFrames.inspect(many); } catch (java.io.IOException e) { rejected = true; }
+            // 2048*1024*8 frames fits the exact aggregate limit.
+            check(!rejected, "aggregate boundary accepted");
+            byte[] extra = java.util.Arrays.copyOf(many, many.length + body);
+            System.arraycopy(valid, header, extra, many.length - 1, body);
+            extra[extra.length - 1] = 0x3b;
+            try { GifFrames.inspect(extra); } catch (java.io.IOException e) { rejected = true; }
+            check(rejected, "aggregate source frames exceed native decode budget");
+        });
+        add("gifActualHostPlaybackFallbackAndDetach", () -> {
+            final AppWidgetHost[] host = new AppWidgetHost[1];
+            runOnMainSync(() -> host[0] = new AppWidgetHost(target, 1737001));
+            int id = host[0].allocateAppWidgetId();
+            ConfigStore store = new ConfigStore(target);
+            Activity activity = null;
+            final android.appwidget.AppWidgetHostView[] view = new android.appwidget.AppWidgetHostView[1];
+            try {
+                AppWidgetManager manager = AppWidgetManager.getInstance(target);
+                check(manager.bindAppWidgetIdIfAllowed(id, WidgetEngine.provider(target)), "GIF test bind required");
+                store.save(id, gif("animated", 10, 1, 0, 5));
+                WidgetEngine.update(target, id);
+                activity = startActivitySync(new android.content.Intent(target, MainActivity.class)
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
+                final Activity screen = activity;
+                runOnMainSync(() -> {
+                    host[0].startListening();
+                    view[0] = host[0].createView(target, id, manager.getAppWidgetInfo(id));
+                    screen.setContentView(view[0]);
+                });
+                waitForIdleSync();
+                final android.widget.ViewFlipper[] flipper = new android.widget.ViewFlipper[1];
+                runOnMainSync(() -> flipper[0] = view[0].findViewById(R.id.widget_animation));
+                check(flipper[0] != null && flipper[0].getChildCount() >= 2, "GIF RemoteViews survived service parceling");
+                final int[] child = new int[1];
+                runOnMainSync(() -> child[0] = flipper[0].getDisplayedChild());
+                boolean advanced = false;
+                for (int attempt = 0; attempt < 15 && !advanced; attempt++) {
+                    android.os.SystemClock.sleep(100);
+                    final boolean[] changed = new boolean[1];
+                    runOnMainSync(() -> changed[0] = child[0] != flipper[0].getDisplayedChild());
+                    advanced = changed[0];
+                }
+                check(advanced, "launcher timer advances frames without application updates");
+                runOnMainSync(() -> { screen.setContentView(new android.widget.FrameLayout(target)); screen.finish(); });
+                waitForIdleSync();
+                android.os.SystemClock.sleep(300);
+                final boolean[] detached = new boolean[1];
+                runOnMainSync(() -> { detached[0] = !flipper[0].isAttachedToWindow(); child[0] = flipper[0].getDisplayedChild(); });
+                check(detached[0], "host detached");
+                android.os.SystemClock.sleep(500);
+                final boolean[] stopped = new boolean[1];
+                runOnMainSync(() -> stopped[0] = child[0] == flipper[0].getDisplayedChild());
+                check(stopped[0], "detached host stops flipping");
+                for (WidgetConfig fallback : new WidgetConfig[]{config("red", WidgetConfig.Scale.FIT, 0, 1, 0), gif("gif", 0, 1, 0, 5)}) {
+                    store.save(id, fallback);
+                    WidgetEngine.update(target, id);
+                    final boolean[] staticLayout = new boolean[1];
+                    runOnMainSync(() -> {
+                        android.appwidget.AppWidgetHostView still = host[0].createView(target, id, manager.getAppWidgetInfo(id));
+                        staticLayout[0] = still.findViewById(R.id.widget_image) != null;
+                    });
+                    check(staticLayout[0], "static/unsupported GIF fallback layout");
+                }
+            } finally {
+                final Activity screen = activity;
+                runOnMainSync(() -> {
+                    if (screen != null) screen.finish();
+                    host[0].stopListening(); host[0].deleteAppWidgetId(id); host[0].deleteHost();
+                });
+                store.delete(id);
+            }
         });
         int failed = 0;
         for (int i = 0; i < tests.size(); i++) {

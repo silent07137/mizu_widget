@@ -34,7 +34,8 @@ public final class MainActivity extends Activity {
                 Ui.gap(this, card, 5);
                 card.addView(Ui.text(this, config == null ? "未设置图片" :
                     scaleLabel(config.scale) + " · 圆角 " + Math.round(config.radiusDp) + " dp · " +
-                    Math.round(config.opacity * 100) + "% 不透明度" + (config.gif ? " · GIF 静态预览" : ""), 13, Ui.MUTED));
+                    Math.round(config.opacity * 100) + "% 不透明度" + (config.gif
+                        ? config.gifPlayback ? " · GIF ≤ " + config.gifFps + " FPS" : " · GIF 静态" : ""), 13, Ui.MUTED));
                 Ui.gap(this, card, 12);
                 Button edit = Ui.button(this, "编辑", false);
                 edit.setOnClickListener(v -> startActivity(new Intent(this, ConfigureActivity.class)

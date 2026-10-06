@@ -40,6 +40,18 @@ final class WidgetEngine {
         if (!owns(context, id)) return;
         WidgetConfig config = new ConfigStore(context).get(id);
         if (config == null) { publish(context, id, null, null, "轻点选择图片"); return; }
+        if (config.gifPlayback) {
+            int[] size = size(context, id);
+            try (GifFrames.Sequence sequence = GifFrames.render(context, config, size[0], size[1],
+                    context.getResources().getDisplayMetrics().density)) {
+                try { cache(context, id, sequence.frames.get(0)); } catch (IOException ignored) { }
+                if (owns(context, id)) AppWidgetManager.getInstance(context).updateAppWidget(id,
+                    animatedViews(context, id, config, sequence));
+                return;
+            } catch (IOException | RuntimeException | OutOfMemoryError ignored) {
+                // Unsupported/oversized GIFs retain the ordinary static-image path.
+            }
+        }
         Bitmap bitmap = null;
         try {
             int[] size = size(context, id);
@@ -68,7 +80,22 @@ final class WidgetEngine {
         views.setViewVisibility(R.id.widget_message, bitmap == null ? View.VISIBLE : View.GONE);
         views.setImageViewBitmap(R.id.widget_image, bitmap);
         if (error != null) views.setTextViewText(R.id.widget_message, error);
-        boolean repair = bitmap == null;
+        applyClick(context, id, config, views, bitmap == null);
+        return views;
+    }
+    static RemoteViews animatedViews(Context context, int id, WidgetConfig config, GifFrames.Sequence sequence) {
+        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.mizu_widget_gif);
+        views.removeAllViews(R.id.widget_animation);
+        views.setInt(R.id.widget_animation, "setFlipInterval", sequence.intervalMs);
+        for (Bitmap bitmap : sequence.frames) {
+            RemoteViews frame = new RemoteViews(context.getPackageName(), R.layout.mizu_gif_frame);
+            frame.setImageViewBitmap(R.id.gif_frame, bitmap);
+            views.addView(R.id.widget_animation, frame);
+        }
+        applyClick(context, id, config, views, false);
+        return views;
+    }
+    private static void applyClick(Context context, int id, WidgetConfig config, RemoteViews views, boolean repair) {
         WidgetConfig.Click click = config == null ? WidgetConfig.Click.CONFIGURE : config.click;
         if (repair || click != WidgetConfig.Click.NONE) {
             Class<?> activity = !repair && click == WidgetConfig.Click.VIEW ? ImageViewerActivity.class : ConfigureActivity.class;
@@ -78,7 +105,6 @@ final class WidgetEngine {
             views.setOnClickPendingIntent(R.id.widget_root, PendingIntent.getActivity(context, id, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         } else views.setOnClickPendingIntent(R.id.widget_root, null);
-        return views;
     }
     private static void publish(Context context, int id, WidgetConfig config, Bitmap bitmap, String error) {
         if (owns(context, id))

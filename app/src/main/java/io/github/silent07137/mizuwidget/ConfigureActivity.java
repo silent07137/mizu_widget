@@ -18,6 +18,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.Spinner;
+import android.widget.Switch;
 import android.widget.TextView;
 import java.io.IOException;
 import java.util.UUID;
@@ -33,8 +34,12 @@ public final class ConfigureActivity extends Activity {
     private ImageView preview;
     private TextView status;
     private Button save;
-    private Bitmap shown;
-    private int generation;
+    private PreviewPlayback playback;
+    private LinearLayout gifOptions;
+    private Switch gifSwitch;
+    private Spinner gifRate;
+    private static final int[] GIF_RATES = {1, 2, 5, 15, 30};
+    private volatile int generation;
     private boolean busy;
     private boolean ready;
     private boolean committed;
@@ -56,6 +61,7 @@ public final class ConfigureActivity extends Activity {
         LinearLayout page = Ui.page(this);
         Ui.heading(this, page, "", widgetId == AppWidgetManager.INVALID_APPWIDGET_ID ? "添加组件" : "组件设置", "");
         preview = Ui.preview(this, page, 220);
+        playback = new PreviewPlayback(preview);
         Ui.gap(this, page, 12);
         status = Ui.text(this, "未选择图片", 13, Ui.MUTED);
         status.setAccessibilityLiveRegion(android.view.View.ACCESSIBILITY_LIVE_REGION_POLITE);
@@ -65,6 +71,26 @@ public final class ConfigureActivity extends Activity {
         choose.setOnClickListener(v -> chooseImage());
         page.addView(choose);
         Ui.gap(this, page, 20);
+        gifOptions = Ui.card(this, page);
+        gifSwitch = new Switch(this);
+        gifSwitch.setText("GIF 播放");
+        gifSwitch.setTextColor(Ui.INK);
+        gifSwitch.setMinimumHeight(Ui.dp(this, 48));
+        gifSwitch.setOnCheckedChangeListener((button, checked) -> {
+            if (!busy && checked != config.gifPlayback) {
+                config = animationConfig(checked, config.gifFps);
+                refreshPreview();
+            }
+        });
+        gifOptions.addView(gifSwitch);
+        label(gifOptions, "帧率上限");
+        gifRate = spinner(gifOptions, new String[]{"1 FPS", "2 FPS", "5 FPS", "15 FPS（高帧率）", "30 FPS（高帧率）"}, rateIndex(), index -> {
+            if (config.gifFps != GIF_RATES[index]) {
+                config = animationConfig(config.gifPlayback, GIF_RATES[index]);
+                refreshPreview();
+            }
+        });
+        Ui.gap(this, page, 14);
         LinearLayout card = Ui.card(this, page);
         label(card, "缩放方式");
         spinner(card, new String[]{"完整显示", "居中裁剪", "拉伸铺满"}, config.scale.ordinal(), index -> {
@@ -104,11 +130,19 @@ public final class ConfigureActivity extends Activity {
         refreshPreview();
     }
     private WidgetConfig copy(String uri, WidgetConfig.Scale scale, float radius, float opacity, int bg, WidgetConfig.Click click, boolean gif) {
-        return new WidgetConfig(uri, scale, radius, opacity, bg, click, gif);
+        return new WidgetConfig(uri, scale, radius, opacity, bg, click, gif, config.gifPlayback, config.gifFps);
+    }
+    private WidgetConfig animationConfig(boolean play, int fps) {
+        return new WidgetConfig(config.uri, config.scale, config.radiusDp, config.opacity, config.background,
+            config.click, config.gif, play, fps);
+    }
+    private int rateIndex() {
+        for (int i = 0; i < GIF_RATES.length; i++) if (GIF_RATES[i] == config.gifFps) return i;
+        return 1;
     }
     private interface Changed { void accept(int value); }
     private void label(LinearLayout card, String value) { card.addView(Ui.text(this, value, 14, Ui.INK)); }
-    private void spinner(LinearLayout card, String[] values, int selected, Changed changed) {
+    private Spinner spinner(LinearLayout card, String[] values, int selected, Changed changed) {
         Spinner spinner = new Spinner(this);
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, values);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -125,6 +159,7 @@ public final class ConfigureActivity extends Activity {
             @Override public void onNothingSelected(android.widget.AdapterView<?> parent) { }
         });
         card.addView(spinner);
+        return spinner;
     }
     private void slider(LinearLayout card, String label, int max, int initial, String unit, Changed changed) {
         TextView title = Ui.text(this, label + "  ·  " + initial + unit, 14, Ui.INK);
@@ -161,6 +196,7 @@ public final class ConfigureActivity extends Activity {
             String previous = config.uri;
             boolean gif = "image/gif".equals(getContentResolver().getType(uri));
             config = copy(uri.toString(), config.scale, config.radiusDp, config.opacity, config.background, config.click, gif);
+            config = animationConfig(gif, config.gifFps);
             if (!previous.equals(config.uri)) store.releaseIfUnused(previous);
             refreshPreview();
         } catch (SecurityException | IllegalArgumentException e) {
@@ -169,34 +205,63 @@ public final class ConfigureActivity extends Activity {
     }
     private void refreshPreview() {
         if (preview == null || save == null || busy) return;
+        refreshGifOptions();
         handler.removeCallbacks(previewWork);
         generation++;
         ready = false;
         save.setEnabled(false);
-        if (config.uri.isEmpty()) { preview.setImageResource(R.drawable.ic_mizu); status.setText("未选择图片"); return; }
+        if (config.uri.isEmpty()) { playback.clear(); preview.setImageResource(R.drawable.ic_mizu); status.setText("未选择图片"); return; }
         status.setText("生成预览…");
         handler.postDelayed(previewWork, 100);
     }
+    private void refreshGifOptions() {
+        gifOptions.setVisibility(config.gif ? android.view.View.VISIBLE : android.view.View.GONE);
+        gifSwitch.setChecked(config.gifPlayback);
+        gifRate.setSelection(rateIndex());
+        gifRate.setEnabled(config.gifPlayback);
+    }
     private final Runnable previewWork = () -> {
         final int version = generation;
-        final WidgetConfig snapshot = config;
+        final WidgetConfig requested = config;
         final int[] bounds = widgetId == AppWidgetManager.INVALID_APPWIDGET_ID ? new int[]{540, 540} : WidgetEngine.size(this, widgetId);
         final float density = getResources().getDisplayMetrics().density;
         WidgetEngine.IO.execute(() -> {
+            if (version != generation) return;
             Bitmap bitmap = null;
+            GifFrames.Sequence frames = null;
             String failure = null;
-            try { bitmap = WidgetRenderer.render(getApplicationContext(), snapshot, bounds[0], bounds[1], density); }
+            WidgetConfig snapshot = requested;
+            try {
+                boolean gif = GifFrames.isGif(getApplicationContext(), requested.uri);
+                if (gif != requested.gif) snapshot = new WidgetConfig(requested.uri, requested.scale,
+                    requested.radiusDp, requested.opacity, requested.background, requested.click, gif, gif, requested.gifFps);
+                if (snapshot.gifPlayback) {
+                    try { frames = GifFrames.render(getApplicationContext(), snapshot, bounds[0], bounds[1], density); }
+                    catch (IOException | RuntimeException | OutOfMemoryError e) { failure = "GIF 无法播放或超限 · 静态预览"; }
+                }
+                if (frames == null) bitmap = WidgetRenderer.render(getApplicationContext(), snapshot, bounds[0], bounds[1], density);
+            }
             catch (IOException | RuntimeException | OutOfMemoryError e) { failure = "图片无法读取，请重新选择一张图片"; }
             final Bitmap result = bitmap;
+            final GifFrames.Sequence animation = frames;
+            final WidgetConfig identified = snapshot;
             final String message = failure;
             handler.post(() -> {
-                if (isFinishing() || isDestroyed() || version != generation) { if (result != null) result.recycle(); return; }
-                preview.setImageBitmap(result);
-                if (shown != null) shown.recycle();
-                shown = result;
-                ready = result != null;
+                if (isFinishing() || isDestroyed() || version != generation) {
+                    if (result != null) result.recycle(); if (animation != null) animation.close(); return;
+                }
+                if (animation != null) playback.show(animation); else playback.show(result);
+                if (config.gif != identified.gif) {
+                    config = new WidgetConfig(config.uri, config.scale, config.radiusDp, config.opacity,
+                        config.background, config.click, identified.gif, identified.gifPlayback, config.gifFps);
+                    refreshGifOptions();
+                }
+                ready = result != null || animation != null;
                 save.setEnabled(ready && !busy);
-                status.setText(message != null ? message : snapshot.gif ? "GIF 静态预览" : "预览");
+                status.setText(message != null ? message : animation != null
+                    ? "GIF · " + (animation.intervalMs > GifFrames.intervalFor(identified.gifFps) ? "已降帧" : identified.gifFps + " FPS")
+                        + (identified.gifFps > 5 ? " · 细节降低" : "")
+                    : identified.gif ? "GIF 静态预览" : "预览");
             });
         });
     };
@@ -242,8 +307,8 @@ public final class ConfigureActivity extends Activity {
         PendingIntent pending = PendingIntent.getBroadcast(this, 0, callback,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
         Bundle extras = new Bundle();
-        if (shown != null) extras.putParcelable(AppWidgetManager.EXTRA_APPWIDGET_PREVIEW,
-            WidgetEngine.views(this, 0, snapshot, shown, null));
+        if (playback.first() != null) extras.putParcelable(AppWidgetManager.EXTRA_APPWIDGET_PREVIEW,
+            WidgetEngine.views(this, 0, snapshot, playback.first(), null));
         try {
             boolean requested = manager.requestPinAppWidget(WidgetEngine.provider(this), extras, pending);
             if (!requested) { store.removeDraft(token); retainedDraft = null; error("桌面未接受添加请求，请使用桌面的小组件入口"); }
@@ -264,10 +329,11 @@ public final class ConfigureActivity extends Activity {
     @Override public void onDestroy() {
         generation++;
         handler.removeCallbacks(previewWork);
-        if (preview != null) preview.setImageDrawable(null);
-        if (shown != null) shown.recycle();
+        if (playback != null) playback.clear();
         // Pin drafts retain the URI until callback or expiry; ordinary cancellation releases it.
         if (isFinishing() && !busy && !committed && config != null) store.releaseIfUnused(config.uri);
         super.onDestroy();
     }
+    @Override public void onStart() { super.onStart(); if (playback != null) playback.setActive(true); }
+    @Override public void onStop() { if (playback != null) playback.setActive(false); super.onStop(); }
 }

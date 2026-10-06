@@ -20,7 +20,7 @@ public final class AboutActivity extends Activity {
         LinearLayout page = Ui.page(this);
         Ui.heading(this, page, "", "关于 Mizu Widget", BuildConfig.VERSION_NAME);
         LinearLayout card = Ui.card(this, page);
-        card.addView(Ui.text(this, "图片桌面组件，支持 GIF 静态预览。\n\n图片在本机处理，不上传。无账号、广告或遥测。", 15, Ui.MUTED));
+        card.addView(Ui.text(this, "图片与 GIF 桌面组件。\n\n图片在本机处理，不上传。无账号、广告或遥测。", 15, Ui.MUTED));
         Ui.gap(this, page, 22);
         page.addView(Ui.text(this, "开源协议", 20, Ui.INK));
         Ui.gap(this, page, 10);
@@ -54,7 +54,7 @@ public final class AboutActivity extends Activity {
         Ui.gap(this, page, 10);
         Button version = Ui.button(this, "版本信息", false);
         version.setOnClickListener(v -> showText("版本信息", "Mizu Widget\n版本：" + BuildConfig.VERSION_NAME +
-            "\n版本代码：" + BuildConfig.VERSION_CODE + "\n最低系统：Android 9\nGIF：静态预览\n无常驻后台服务"));
+            "\n版本代码：" + BuildConfig.VERSION_CODE + "\n最低系统：Android 9\nGIF：循环播放，可选高帧率\n无常驻后台服务"));
         page.addView(version);
         Ui.gap(this, page, 24);
         page.addView(Ui.text(this, "Copyright © 2026 silent07137", 12, Ui.MUTED));

@@ -14,9 +14,16 @@ public final class WidgetConfig {
     public final int background;
     public final Click click;
     public final boolean gif;
+    public final boolean gifPlayback;
+    public final int gifFps;
 
     public WidgetConfig(String uri, Scale scale, float radiusDp, float opacity,
                         int background, Click click, boolean gif) {
+        this(uri, scale, radiusDp, opacity, background, click, gif, false, 2);
+    }
+
+    public WidgetConfig(String uri, Scale scale, float radiusDp, float opacity,
+                        int background, Click click, boolean gif, boolean gifPlayback, int gifFps) {
         this.uri = uri == null ? "" : uri;
         this.scale = scale == null ? Scale.FIT : scale;
         this.radiusDp = Float.isFinite(radiusDp) ? Math.max(0, Math.min(64, radiusDp)) : 20;
@@ -24,6 +31,8 @@ public final class WidgetConfig {
         this.background = background;
         this.click = click == null ? Click.CONFIGURE : click;
         this.gif = gif;
+        this.gifPlayback = gif && gifPlayback;
+        this.gifFps = gifFps == 1 || gifFps == 5 || gifFps == 15 || gifFps == 30 ? gifFps : 2;
     }
 
     public static WidgetConfig defaults() {
@@ -33,7 +42,8 @@ public final class WidgetConfig {
     public JSONObject toJson() throws JSONException {
         return new JSONObject().put("uri", uri).put("scale", scale.name())
             .put("radius", radiusDp).put("opacity", opacity).put("background", background)
-            .put("click", click.name()).put("gif", gif);
+            .put("click", click.name()).put("gif", gif)
+            .put("gifPlayback", gifPlayback).put("gifFps", gifFps);
     }
 
     public static WidgetConfig fromJson(String raw) throws JSONException {
@@ -46,6 +56,7 @@ public final class WidgetConfig {
         catch (IllegalArgumentException e) { click = Click.CONFIGURE; }
         return new WidgetConfig(json.optString("uri"), scale,
             (float) json.optDouble("radius", 20), (float) json.optDouble("opacity", 1),
-            json.optInt("background", 0), click, json.optBoolean("gif", false));
+            json.optInt("background", 0), click, json.optBoolean("gif", false),
+            json.optBoolean("gifPlayback", false), json.optInt("gifFps", 2));
     }
 }

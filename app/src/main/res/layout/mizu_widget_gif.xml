@@ -1,0 +1,6 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root" android:layout_width="match_parent" android:layout_height="match_parent">
+    <ViewFlipper android:id="@+id/widget_animation"
+        android:layout_width="match_parent" android:layout_height="match_parent"
+        android:autoStart="true" android:flipInterval="500" />
+</FrameLayout>
