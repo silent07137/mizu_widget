@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">Mizu Widget</string>
+    <string name="widget_description">把喜欢的图片，放在桌面。每个组件都可以单独调整。</string>
+    <string name="widget_empty">轻点选择图片</string>
+    <string name="widget_image">桌面图片</string>
+</resources>

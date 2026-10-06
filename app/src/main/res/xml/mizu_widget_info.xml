@@ -1,0 +1,13 @@
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="140dp" android:minHeight="140dp"
+    android:minResizeWidth="40dp" android:minResizeHeight="40dp"
+    android:targetCellWidth="2" android:targetCellHeight="2"
+    android:initialLayout="@layout/mizu_widget"
+    android:previewLayout="@layout/mizu_widget"
+    android:previewImage="@drawable/ic_mizu"
+    android:configure="io.github.silent07137.mizuwidget.ConfigureActivity"
+    android:description="@string/widget_description"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen"
+    android:widgetFeatures="reconfigurable" />

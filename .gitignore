@@ -1,0 +1,33 @@
+# Android / Gradle / local tools
+.gradle/
+**/build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+.idea/
+*.iml
+# Signing and credentials
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+keystore.properties
+signing.properties
+secrets.properties
+.env
+.env.*
+!.env.example
+# Outputs and local device evidence
+*.apk
+*.aab
+*.apks
+*.idsig
+artifacts/
+test-artifacts/
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
