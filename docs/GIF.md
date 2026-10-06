@@ -12,6 +12,8 @@ GIF 通过文件头识别，不要求扩展名为 `.gif`，也不依赖文件提
 
 预览在应用不可见时暂停；桌面宿主窗口不可见或控件脱离窗口时，系统 ViewFlipper 会停止计时。其他桌面的页面缓存、可见性及计时策略可能不同。
 
+Android 15 及以上通过系统“强制停止”应用时，系统会暂时禁用该应用的所有组件；重新打开应用后恢复。这与普通后台进程回收不同，详见 [Android 官方说明](https://developer.android.com/about/versions/15/behavior-changes-all#widgets-disabled)。
+
 ## 上限与回退
 
 | 项目 | 上限 |
