@@ -23,6 +23,12 @@ final class GifFrames {
     static final int MAX_FRAMES = 24;
     static final int MAX_HIGH_FRAMES = 120;
     static int intervalFor(int fps) { return (1000 + fps - 1) / fps; }
+    static long pixelBudget(Context context) {
+        android.util.DisplayMetrics display = context.getApplicationContext().getResources().getDisplayMetrics();
+        // AppWidgetService caps bitmaps at 1.5 screenfuls; retain a margin on small displays.
+        long screen = (long) Math.max(1, display.widthPixels) * Math.max(1, display.heightPixels);
+        return Math.max(MAX_HIGH_FRAMES, Math.min(Geometry.MAX_PIXELS, screen));
+    }
     static final long MAX_SOURCE_PIXELS = 2097152L;
     // Bound even a decoder that retains every source frame, before invoking native code.
     static final long MAX_SOURCE_FRAME_PIXELS = 16777216L;
@@ -127,11 +133,12 @@ final class GifFrames {
         int count = Math.min(limit, Math.max(2, (duration + requestedInterval - 1) / requestedInterval));
         int interval = Math.max(requestedInterval, (duration + count - 1) / count);
         int[] size = Geometry.boundedSize(width, height);
-        double factor = Math.min(1, Math.sqrt(Geometry.MAX_PIXELS / (double) count / ((double) size[0] * size[1])));
+        long budget = pixelBudget(context);
+        double factor = Math.min(1, Math.sqrt(budget / (double) count / ((double) size[0] * size[1])));
         size[0] = Math.max(1, (int) (size[0] * factor));
         size[1] = Math.max(1, (int) (size[1] * factor));
         // Rounding a very long, one-pixel-tall output up must still honor the total budget.
-        while ((long) size[0] * size[1] * count > Geometry.MAX_PIXELS) {
+        while ((long) size[0] * size[1] * count > budget) {
             if (size[0] >= size[1]) size[0]--; else size[1]--;
         }
         Sequence result = new Sequence(interval);

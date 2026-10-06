@@ -24,6 +24,10 @@ public final class WidgetTestRunner extends Instrumentation {
     }
     private void check(boolean condition, String message) { if (!condition) throw new AssertionError(message); }
     private void near(float actual, float expected, String message) { check(Math.abs(actual - expected) < .01, message + ": " + actual); }
+    private void update(Context context, int id) throws Exception {
+        // Share the production update queue with the provider's initial binding broadcast.
+        WidgetEngine.IO.submit(() -> WidgetEngine.update(context, id)).get();
+    }
     private WidgetConfig gif(String name, float radius, float alpha, int bg, int fps) {
         return new WidgetConfig(FixtureProvider.ROOT + name, WidgetConfig.Scale.STRETCH, radius, alpha,
             bg, WidgetConfig.Click.CONFIGURE, true, true, fps);
@@ -130,11 +134,11 @@ public final class WidgetTestRunner extends Instrumentation {
                 options.putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 150);
                 manager.updateAppWidgetOptions(id, options);
                 store.save(id, config("red", WidgetConfig.Scale.CROP, 20, 1, 0));
-                WidgetEngine.update(target, id);
+                update(target, id);
                 check(WidgetEngine.cacheFile(target, id).exists(), "actual widget render cached");
                 options.putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250);
                 manager.updateAppWidgetOptions(id, options);
-                WidgetEngine.update(target, id);
+                update(target, id);
                 int[] size = WidgetEngine.size(target, id);
                 check(size[0] >= 250, "host resize options honored");
                 runOnMainSync(() -> {
@@ -142,7 +146,7 @@ public final class WidgetTestRunner extends Instrumentation {
                     check(view != null, "RemoteViews inflate in actual host");
                 });
                 store.save(id, config("corrupt", WidgetConfig.Scale.FIT, 0, 1, 0));
-                WidgetEngine.update(target, id); // Visible repair placeholder; no crash.
+                update(target, id); // Visible repair placeholder; no crash.
             } finally {
                 host[0].deleteAppWidgetId(id);
                 store.delete(id);
@@ -178,7 +182,7 @@ public final class WidgetTestRunner extends Instrumentation {
                         red |= Color.red(color) == 255;
                         blue |= Color.blue(color) == 255;
                     }
-                    check(bytes <= Geometry.MAX_PIXELS * 4 && frames.frames.size() <= (fps > 5 ? 120 : 24), "total GIF payload bounded");
+                    check(bytes <= GifFrames.pixelBudget(target) * 4 && frames.frames.size() <= (fps > 5 ? 120 : 24), "total GIF payload bounded");
                     check(red && (fps == 1 || blue), "sampled timeline retains distinct frames");
                     check(frames.intervalMs >= GifFrames.intervalFor(fps), "rate limit honored");
                 }
@@ -241,7 +245,7 @@ public final class WidgetTestRunner extends Instrumentation {
                 AppWidgetManager manager = AppWidgetManager.getInstance(target);
                 check(manager.bindAppWidgetIdIfAllowed(id, WidgetEngine.provider(target)), "GIF test bind required");
                 store.save(id, gif("animated", 10, 1, 0, 30));
-                WidgetEngine.update(target, id);
+                update(target, id);
                 activity = startActivitySync(new android.content.Intent(target, MainActivity.class)
                     .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
                 final Activity screen = activity;
@@ -253,7 +257,9 @@ public final class WidgetTestRunner extends Instrumentation {
                 waitForIdleSync();
                 final android.widget.ViewFlipper[] flipper = new android.widget.ViewFlipper[1];
                 runOnMainSync(() -> flipper[0] = view[0].findViewById(R.id.widget_animation));
-                check(flipper[0] != null && flipper[0].getChildCount() >= 2, "GIF RemoteViews survived service parceling");
+                android.util.DisplayMetrics display = target.getResources().getDisplayMetrics();
+                check(flipper[0] != null && flipper[0].getChildCount() >= 2,
+                    "GIF RemoteViews survived service parceling on " + display.widthPixels + "x" + display.heightPixels);
                 final int[] child = new int[1];
                 runOnMainSync(() -> child[0] = flipper[0].getDisplayedChild());
                 boolean advanced = false;
@@ -276,7 +282,7 @@ public final class WidgetTestRunner extends Instrumentation {
                 check(stopped[0], "detached host stops flipping");
                 for (WidgetConfig fallback : new WidgetConfig[]{config("red", WidgetConfig.Scale.FIT, 0, 1, 0), gif("gif", 0, 1, 0, 5)}) {
                     store.save(id, fallback);
-                    WidgetEngine.update(target, id);
+                    update(target, id);
                     final boolean[] staticLayout = new boolean[1];
                     runOnMainSync(() -> {
                         android.appwidget.AppWidgetHostView still = host[0].createView(target, id, manager.getAppWidgetInfo(id));
